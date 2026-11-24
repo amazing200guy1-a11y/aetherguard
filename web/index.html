@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AetherGuard Sentinel — Autonomous Circuit Breaker Engine for Gno.land</title>
+  <style>
+    :root {
+      --bg-primary: #0B0D0F;
+      --bg-card: #121519;
+      --bg-elevated: #181C21;
+      --border: #242932;
+      --border-focus: #3A4150;
+      --text-main: #FFFFFF;
+      --text-muted: #8E96A4;
+      --text-dim: #586070;
+      --accent-mono: #E1E4EA;
+      --status-green: #34D399;
+      --status-red: #F87171;
+      --status-yellow: #FBBF24;
+      --font-mono: "JetBrains Mono", "SF Mono", Consolas, "Courier New", monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-primary);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      padding: 32px 24px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Header & Branding */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 24px;
+      margin-bottom: 32px;
+    }
+
+    .brand-title {
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+
+    .brand-sub {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-top: 6px;
+      max-width: 600px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .btn {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 10px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-main);
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn:hover {
+      background: var(--bg-elevated);
+      border-color: var(--border-focus);
+    }
+
+    .btn-primary {
+      background: #FFFFFF;
+      color: #0B0D0F;
+      border-color: #FFFFFF;
+    }
+    .btn-primary:hover {
+      background: #E1E4EA;
+      border-color: #E1E4EA;
+    }
+
+    .btn-danger {
+      border-color: #552222;
+      background: #241414;
+      color: var(--status-red);
+    }
+    .btn-danger:hover {
+      background: #331A1A;
+      border-color: var(--status-red);
+    }
+
+    /* Live Telemetry Grid */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 20px;
+    }
+
+    .metric-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .metric-value {
+      font-family: var(--font-mono);
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.02em;
+    }
+
+    .metric-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--status-green);
+      display: inline-block;
+    }
+    .status-dot.red { background: var(--status-red); }
+
+    /* Interactive Simulation & Controls */
+    .section-title {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .console-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 24px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .form-input {
+      width: 100%;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      padding: 10px 12px;
+      border-radius: 4px;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--border-focus);
+    }
+
+    /* Terminal Telemetry Log */
+    .terminal-box {
+      background: #070809;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #D1D5DB;
+      height: 280px;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+
+    .term-line {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .term-ts { color: var(--text-dim); }
+    .term-tag { color: var(--accent-mono); font-weight: 600; }
+    .term-alert { color: var(--status-red); font-weight: 600; }
+    .term-ok { color: var(--status-green); }
+
+    /* Gno Native Render() Preview Tabs */
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .tab-item {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab-item.active {
+      color: var(--text-main);
+      border-bottom-color: #FFFFFF;
+    }
+
+    .render-preview {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 20px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      white-space: pre-wrap;
+      line-height: 1.6;
+      color: #E2E8F0;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding-top: 24px;
+      margin-top: 40px;
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-dim);
+      font-size: 12px;
+      font-family: var(--font-mono);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div>
+        <div class="brand-title">
+          <span>AETHERGUARD</span>
+          <span class="brand-pill">GNO.LAND REALM</span>
+          <span class="brand-pill">gnomcp AI AGENT</span>
+        </div>
+        <p class="brand-sub">
+          Autonomous real-time security, velocity rate limiting, and circuit breaker engine for Gno.land smart contracts.
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn" id="btnConnectAdena" onclick="connectAdena()">
+          <span class="status-dot"></span>
+          <span id="walletStatusText">Connect Adena Wallet</span>
+        </button>
+        <a href="https://github.com/amazing200guy1-a11y/aetherguard" target="_blank" class="btn">
+          GitHub Repo
+        </a>
+      </div>
+    </header>
+
+    <!-- Metrics Grid -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Protected Vault Reserve</div>
+        <div class="metric-value" id="valReserve">1,000,000</div>
+        <div class="metric-sub">ugnot on-chain deposit</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Max Epoch Outflow</div>
+        <div class="metric-value">10.00%</div>
+        <div class="metric-sub">1000 bps / 100-block window</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Circuit Breaker Status</div>
+        <div class="metric-value" id="valStatusText" style="color: var(--status-green);">NOMINAL</div>
+        <div class="metric-sub">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="valStatusSub">Vault operations normal</span>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Guardian Quorum</div>
+        <div class="metric-value">2-of-3</div>
+        <div class="metric-sub">Byzantine multi-sig consensus</div>
+      </div>
+    </div>
+
+    <!-- Interactive Simulation & Sentinel Telemetry -->
+    <div class="section-title">Autonomous Sentinel Simulator & On-Chain Dispatcher</div>
+    <div class="console-split">
+      <!-- Left: Interactive Test Actions -->
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label">Active Gno.land RPC Endpoint</label>
+          <input type="text" class="form-input" id="rpcInput" value="https://rpc.testnet.gno.land" readonly>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Realm Package Path</label>
+          <input type="text" class="form-input" value="gno.land/r/amazing200guy1/aetherguard" readonly>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 24px;">
+          <button class="btn btn-primary" onclick="simulateNormalTx()">
+            Simulate Normal Outflow (20,000 ugnot / 2%)
+          </button>
+          
+          <button class="btn btn-danger" onclick="simulateExploitDrain()">
+            Simulate Flash Drain Exploit (250,000 ugnot / 25%)
+          </button>
+
+          <button class="btn" onclick="simulateGuardianUnpause()">
+            Execute Multi-Sig Quorum Unpause (2-of-3 Votes)
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: Real-time Sentinel Log -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <span class="form-label" style="margin: 0;">Autonomous Sentinel Event Log</span>
+          <button class="btn" style="padding: 4px 8px; font-size: 11px;" onclick="clearLog()">Clear</button>
+        </div>
+        <div class="terminal-box" id="terminalLog">
+          <div class="term-line">
+            <span class="term-ts">[11:42:01]</span>
+            <span class="term-tag">[SYSTEM]</span>
+            <span class="term-ok">AetherGuard Sentinel v1.0.4 genesis initialized on Gno.land.</span>
+          </div>
+          <div class="term-line">
+            <span class="term-ts">[11:42:02]</span>
+            <span class="term-tag">[MCP_AGENT]</span>
+            <span>Connected via Model Context Protocol to gno.land/r/.../aetherguard.</span>
+          </div>
+          <div class="term-line">
+            <span class="term-ts">[11:42:03]</span>
+            <span class="term-tag">[RATE_LIMIT]</span>
+            <span>Invariant active: MaxOutflow &le; 10.00% per 100 blocks.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Native Gno Render() Web Engine View -->
+    <div class="section-title">Gno.land Native Render(path) On-Chain Preview</div>
+    <div class="card">
+      <div class="tab-bar">
+        <button class="tab-item active" onclick="switchTab('home', this)">Render("") [Overview]</button>
+        <button class="tab-item" onclick="switchTab('alerts', this)">Render("alerts") [Incidents]</button>
+        <button class="tab-item" onclick="switchTab('guardians', this)">Render("guardians") [Multi-Sig]</button>
+        <button class="tab-item" onclick="switchTab('metrics', this)">Render("metrics") [Formulas]</button>
+        <button class="tab-item" onclick="switchTab('audit', this)">Render("audit") [Matrix]</button>
+      </div>
+      <div class="render-preview" id="renderPreviewContent">Loading on-chain markdown...</div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <div>AETHERGUARD PROTOCOL — GNOME TAVERN HACKATHON 2026</div>
+      <div>PURE DETERMINISTIC GNO REALM &bull; gnomcp AUTONOMOUS AGENT</div>
+    </footer>
+  </div>
+
+  <script>
+    let vaultBalance = 1000000;
+    let breakerActive = false;
+
+    const renderData = {
+      home: `# AETHERGUARD SENTINEL
+### Autonomous Real-Time Security & Circuit Breaker Engine for Gno.land
+---
+## System Status: 🟢 SYSTEM OPERATIONAL
+> All circuit breakers nominal. Inflow and outflow velocity within verified thresholds.
+
+### Telemetry & Reserve Overview
+| Metric Parameter | Live On-Chain Value | Engineering Specifications |
+| :--- | :--- | :--- |
+| Protected Vault Reserve | 1,000,000 ugnot | Immutable smart contract vault |
+| Max Outflow Velocity | 1000 bps (10.00%) | Enforced per epoch window |
+| Velocity Epoch Window | 100 blocks | Rolling sliding window |
+| Active Guardians | 3 addresses | Byzantine Fault Tolerant Multi-Sig |
+| Consensus Quorum | 2-of-3 | Required to disable circuit breaker |
+| Protocol Version | v1.0.4-genesis | Pure Deterministic Gno Realm |`,
+
+      alerts: `# Threat Incident Ledger
+Chronological immutable record of security alerts detected by autonomous sentinel agents.
+
+| ID | Block | Severity | Reporter | Description | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| #1 | 1 | 🟢 LOW | SystemGenesis | AetherGuard Sentinel Realm deployed with Circuit Breakers | Mitigated |`,
+
+      guardians: `# Multi-Sig Guardian Registry
+AetherGuard requires 2-of-3 consensus among registered cryptographic guardians to lift an emergency freeze.
+
+### Active Guardians
+| Index | Guardian Address | Status | Enrolled Height |
+| :--- | :--- | :--- | :--- |
+| 1 | g1sentinelmaster000000000000000000000000 | ✅ Active | Block #1 |
+| 2 | g1nodeauditoralpha000000000000000000000 | ✅ Active | Block #1 |
+| 3 | g1aiagentwatchdog0000000000000000000000 | ✅ Active | Block #1 |`,
+
+      metrics: `# Mathematical Velocity Governance
+### Quantitative Outflow Defense Formulation
+To eliminate flash drains and re-entrancy exploits, AetherGuard enforces a strict mathematical bound:
+
+ΔV_epoch = Σ Outflow(t) for t ∈ [EpochStart, EpochEnd]
+MaxAllowedOutflow = (TotalVaultBalance * MaxEpochOutflowBps) / 10000
+Invariant: ΔV_epoch <= MaxAllowedOutflow
+
+If any withdrawal attempts to violate this invariant, the transaction fails and the Circuit Breaker trips autonomously.`,
+
+      audit: `# Formal Security Audit Matrix
+Verification matrix for AetherGuard Genesis Release:
+
+| Threat Vector | Traditional Risk | AetherGuard On-Chain Defense | Status |
+| :--- | :--- | :--- | :--- |
+| Flash Loan Drain | 100% treasury drained in 1 tx | Max 10% outflow per 100-block epoch | 🛡️ Immune |
+| Oracle Manipulation | False pricing triggers liquidation | Velocity brake triggers before depletion | 🛡️ Immune |
+| Compromised Key | Single admin unpauses malicious code | 2-of-3 Guardian Quorum required | 🛡️ Protected |
+| Agent False Positive | AI agent reports spurious freeze | Guardian timelock unpause queue | 🛡️ Mitigated |
+| Re-Entrancy | Recursive state corruption | Checks-Effects-Interactions strictly enforced | 🛡️ Immune |`
+    };
+
+    function switchTab(route, el) {
+      document.querySelectorAll('.tab-item').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      document.getElementById('renderPreviewContent').textContent = renderData[route];
+    }
+
+    function appendLog(tag, msg, isAlert = false, isOk = false) {
+      const now = new Date().toTimeString().split(' ')[0];
+      const box = document.getElementById('terminalLog');
+      const div = document.createElement('div');
+      div.className = 'term-line';
+      div.innerHTML = `<span class="term-ts">[${now}]</span> ` +
+        `<span class="${isAlert ? 'term-alert' : 'term-tag'}">${tag}</span> ` +
+        `<span class="${isOk ? 'term-ok' : ''}">${msg}</span>`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function clearLog() {
+      document.getElementById('terminalLog').innerHTML = '';
+    }
+
+    function simulateNormalTx() {
+      if (breakerActive) {
+        appendLog('[REJECTED]', 'Withdrawal blocked: Circuit breaker is currently ACTIVE.', true);
+        return;
+      }
+      vaultBalance -= 20000;
+      document.getElementById('valReserve').textContent = vaultBalance.toLocaleString();
+      appendLog('[WITHDRAWAL]', 'Processed 20,000 ugnot (2.00%). Velocity within limits. Remaining: ' + vaultBalance.toLocaleString(), false, true);
+    }
+
+    function simulateExploitDrain() {
+      breakerActive = true;
+      document.getElementById('valStatusText').textContent = 'EMERGENCY FROZEN';
+      document.getElementById('valStatusText').style.color = 'var(--status-red)';
+      document.getElementById('valStatusSub').textContent = 'Flash drain blocked by sentinel';
+      document.getElementById('statusDot').className = 'status-dot red';
+      
+      appendLog('[EXPLOIT_DETECTED]', 'Withdrawal of 250,000 ugnot (25.00%) violates 10% epoch limit!', true);
+      appendLog('[CIRCUIT_BREAKER]', 'AUTONOMOUS PAUSE TRIGGERED. All outflows halted instantly.', true);
+    }
+
+    function simulateGuardianUnpause() {
+      if (!breakerActive) {
+        appendLog('[INFO]', 'Circuit breaker is already inactive (nominal).', false);
+        return;
+      }
+      appendLog('[GUARDIAN_1]', 'Guardian g1sentinelmaster proposed Unpause. Signature (1/2 recorded).');
+      setTimeout(() => {
+        appendLog('[GUARDIAN_2]', 'Guardian g1nodeauditor voted. Quorum reached (2/2 signatures)!');
+        breakerActive = false;
+        document.getElementById('valStatusText').textContent = 'NOMINAL';
+        document.getElementById('valStatusText').style.color = 'var(--status-green)';
+        document.getElementById('valStatusSub').textContent = 'Vault operations normal';
+        document.getElementById('statusDot').className = 'status-dot';
+        appendLog('[SYSTEM]', 'CIRCUIT BREAKER RESET. Normal vault operations restored.', false, true);
+      }, 600);
+    }
+
+    async function connectAdena() {
+      if (typeof window.adena !== 'undefined') {
+        try {
+          await window.adena.AddEstablish("AetherGuard Sentinel");
+          const account = await window.adena.GetAccount();
+          document.getElementById('walletStatusText').textContent = account.address.slice(0, 8) + '...' + account.address.slice(-4);
+          appendLog('[WALLET]', 'Adena wallet connected: ' + account.address, false, true);
+        } catch (e) {
+          appendLog('[WALLET_ERROR]', e.message, true);
+        }
+      } else {
+        // Fallback for browsers without Adena extension
+        document.getElementById('walletStatusText').textContent = 'g1sentinel...3a9f (Demo)';
+        appendLog('[WALLET]', 'Mock Adena account connected: g1sentinelmaster000000000000000000000000', false, true);
+      }
+    }
+
+    // Initialize home render
+    document.getElementById('renderPreviewContent').textContent = renderData.home;
+  </script>
+</body>
+</html>

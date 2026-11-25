@@ -12,6 +12,10 @@
 
 ---
 
+## Demo
+
+[![Demo Video](https://img.shields.io/badge/Demo-YouTube-red?style=flat-square&logo=youtube)](https://youtube.com/@amazing200guy1)
+
 ## 1. Executive Summary
 
 Decentralized finance on high-throughput Layer 1 platforms experiences catastrophic exploits primarily due to three failure modes:
